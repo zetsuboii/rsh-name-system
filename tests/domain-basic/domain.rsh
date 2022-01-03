@@ -39,7 +39,6 @@ const UserAPIInterface = {
 	// Register functions
 	register: Fun([UInt], Bool),
 	renew: Fun([UInt], Bool),
-	isAvailable: Fun([], Bool),
 	// Resolve
 	setResolver: Fun([Address], Bool),
 	// Transfers
@@ -91,11 +90,11 @@ export const main = Reach.App(() => {
 			Views.resolver.set(state.resolver);
 			Views.ttl.set(state.ttl);
 			Views.price.set(state.price);
-			Views.isAvailable.set(state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD);
+			Views.isAvailable.set(state.ttl == 0 || lastConsensusSecs() > state.ttl + GRACE_PERIOD);
 
 			// Allow if registering for the first time or if it's expired
 			const isAvailable = () => 
-				state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD;
+				state.ttl == 0 || lastConsensusSecs() > state.ttl + GRACE_PERIOD;
 
 
 			const isOwner = (addr) => addr === state.owner;
@@ -118,7 +117,7 @@ export const main = Reach.App(() => {
 				return {
 					owner: this,
 					resolver: this,
-					ttl: lastConsensusTime() + duration,
+					ttl: lastConsensusSecs() + duration,
 					price: Price.NotForSale()
 				};
 			})
@@ -140,12 +139,6 @@ export const main = Reach.App(() => {
 					ttl: state.ttl + duration
 				} 
 			}
-		)
-		.api(User.isAvailable,
-			(showIfAvailable) => {
-				showIfAvailable(isAvailable());
-				return state;
-			}	
 		)
 		.api(User.setResolver,
 			(newResolver) => {
