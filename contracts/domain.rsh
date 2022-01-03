@@ -31,7 +31,8 @@ const DomainViews = {
 };
 
 const CreatorInterface = {
-	getParams: Fun([], NftParams)
+	getParams: Fun([], NftParams),
+	announce: Fun([], Null)
 };
 
 const UserAPIInterface = {
@@ -69,7 +70,7 @@ export const main = Reach.App(() => {
 	
 	commit();
 
-	// This is needed to observe consensus time
+	Creator.interact.announce();
 	Creator.publish();
 
 	const initialState = {
@@ -89,14 +90,15 @@ export const main = Reach.App(() => {
 			Views.ttl.set(state.ttl);
 			Views.price.set(state.price);
 
+			// Allow if registering for the first time or if it's expired
 			const isAvailable = () => 
 				state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD;
+
 			const isOwner = (addr) => addr === state.owner;
 		})
 		.api(User.register,
 			(duration) => {
 				assume(duration >= MIN_REGISTER_PERIOD);
-				// Allow if registering for the first time or if it's expired
 				assume(isAvailable());
 				assume(!isOwner(this));
 			},
@@ -133,7 +135,6 @@ export const main = Reach.App(() => {
 					...state,
 					ttl: state.ttl + duration
 				} 
-				// [owner, resolver, ttl + duration, price];
 			}
 		)
 		.api(User.isAvailable,
@@ -157,7 +158,6 @@ export const main = Reach.App(() => {
 					...state,
 					resolver: newResolver
 				};
-				// [owner, newResolver, ttl, price];
 			}
 		)
 		.api(User.transferTo,
@@ -177,7 +177,6 @@ export const main = Reach.App(() => {
 					resolver: newOwner,
 					price: Price.NotForSale()
 				};
-				// [newOwner, newOwner, ttl, price]
 			}
 		)
 		.api(User.list,
@@ -195,7 +194,6 @@ export const main = Reach.App(() => {
 					...state,
 					price: Price.ForSale(newPrice)
 				};
-				// [owner, resolver, ttl, newPrice];
 			}
 		)
 		.api(User.buy,
@@ -217,7 +215,6 @@ export const main = Reach.App(() => {
 					resolver: this,
 					price: Price.NotForSale()
 				}; 
-				// [this, this, ttl, 0];
 			} 
 		)
 		.timeout(relativeSecs(1024), () => {
