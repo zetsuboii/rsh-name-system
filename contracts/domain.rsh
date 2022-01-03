@@ -24,7 +24,7 @@ const UserAPIInterface = {
 	register: Fun([UInt], Bool),
 	renew: Fun([UInt], Bool),
 	// // Resolve
-	// setResolver: Fun([Address], Bool),
+	setResolver: Fun([Address], Bool),
 	// // Transfers
 	// transferTo: Fun([Address], Bool),
 	// // Marketplace
@@ -82,6 +82,20 @@ export const main = Reach.App(() => {
 				ok(true);
 
 				return [owner, resolver, ttl + duration];
+			}
+		)
+		.api(User.setResolver,
+			(newResolver) => {
+				assume(newResolver != resolver);
+				assume(this == owner);
+			},
+			(_) => 0,
+			(newResolver, ok) => {
+				require(newResolver != resolver);
+				require(this == owner);
+				ok(true);
+
+				return [owner, newResolver, ttl];
 			}
 		)
 		.timeout(relativeSecs(1024), () => {
