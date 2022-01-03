@@ -27,9 +27,9 @@ const UserAPIInterface = {
 	setResolver: Fun([Address], Bool),
 	// Transfers
 	transferTo: Fun([Address], Bool),
-	// // Marketplace
-	// list: Fun([UInt], Bool),
-	// buy: Fun([UInt], Bool)
+	// Marketplace
+	list: Fun([UInt], Bool),
+	buy: Fun([], Bool)
 };
 
 const DAYS_TO_SECS = 24 * 60 * 60;
@@ -57,7 +57,7 @@ export const main = Reach.App(() => {
 	 */
 
 	// Main loop
-	const [owner, resolver, ttl] = parallelReduce([Creator, Creator, 0])
+	const [owner, resolver, ttl, price] = parallelReduce([Creator, Creator, 0])
 		.invariant(balance() == 0)
 		.while(true)
 		.api(User.register,
@@ -74,7 +74,7 @@ export const main = Reach.App(() => {
 				require(this != owner);
 				ok(true);
 
-				return [this, this, lastConsensusTime() + duration];
+				return [this, this, lastConsensusTime() + duration, 0];
 			})
 		.api(User.renew,
 			(duration) => {
@@ -87,7 +87,7 @@ export const main = Reach.App(() => {
 				require(this == owner);
 				ok(true);
 
-				return [owner, resolver, ttl + duration];
+				return [owner, resolver, ttl + duration, price];
 			}
 		)
 		.api(User.setResolver,
@@ -101,7 +101,7 @@ export const main = Reach.App(() => {
 				require(this == owner);
 				ok(true);
 
-				return [owner, newResolver, ttl];
+				return [owner, newResolver, ttl, price];
 			}
 		)
 		.api(User.transferTo,
@@ -115,8 +115,36 @@ export const main = Reach.App(() => {
 				require(this == owner);
 				ok(true);
 
-				return [newOwner, newOwner, ttl]
+				return [newOwner, newOwner, ttl, price]
 			}
+		)
+		.api(User.list,
+			(newPrice) => {
+				assume(newPrice > 0);
+				assume(this == owner);
+			},
+			(_) => 0,
+			(newPrice, ok) => {
+				require(newPrice > 0);
+				require(this == owner);
+				ok(true);
+
+				return [owner, resolver, ttl, newPrice];
+			}
+		)
+		.api(User.buy,
+			() => {
+				assume(this != owner);
+				assume(price > 0);
+			},
+			() => price,
+			(ok) => {
+				require(this != owner);
+				require(price > 0);
+				ok(true);
+
+				return [this, this, ttl, 0];
+			} 
 		)
 		.timeout(relativeSecs(1024), () => {
 			Anybody.publish();
