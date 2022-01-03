@@ -81,6 +81,9 @@ export const main = Reach.App(() => {
 			Views.resolver.set(state.resolver);
 			Views.ttl.set(state.ttl);
 			Views.price.set(state.price);
+
+			const isAvailable = () => 
+				state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD;
 		})
 		.api(User.register,
 			(duration) => {
@@ -120,6 +123,14 @@ export const main = Reach.App(() => {
 				} 
 				// [owner, resolver, ttl + duration, price];
 			}
+		)
+		.api(User.isAvailable,
+			(showIfAvailable) => {
+				showIfAvailable(
+					state.ttl == 0 || 
+					lastConsensusTime() > state.ttl + GRACE_PERIOD
+				);
+			}	
 		)
 		.api(User.setResolver,
 			(newResolver) => {
