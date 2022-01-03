@@ -22,7 +22,7 @@ const CreatorInterface = {
 const UserAPIInterface = {
 	// Register functions
 	register: Fun([UInt], Bool),
-	// renew: Fun([UInt], Bool),
+	renew: Fun([UInt], Bool),
 	// // Resolve
 	// setResolver: Fun([Address], Bool),
 	// // Transfers
@@ -70,6 +70,20 @@ export const main = Reach.App(() => {
 
 				return [this, this, lastConsensusTime() + duration];
 			})
+		.api(User.renew,
+			(duration) => {
+				assume(duration >= MIN_REGISTER_PERIOD);;
+				assume(this == owner);
+			},
+			(duration) => (duration * pricePerDay) / DAYS_TO_SECS,
+			(duration, ok) => {
+				require(duration >= MIN_REGISTER_PERIOD);
+				require(this == owner);
+				ok(true);
+
+				return [owner, resolver, ttl + duration];
+			}
+		)
 		.timeout(relativeSecs(1024), () => {
 			Anybody.publish();
 			return [owner, resolver, ttl];
