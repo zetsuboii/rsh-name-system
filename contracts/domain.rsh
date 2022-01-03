@@ -17,7 +17,11 @@ const Price = Data({
 
 // Interfaces
 const DomainViews = {
-
+	owner: Address,
+	resolver: Address,
+	ttl: UInt,
+	price: UInt,
+	isExpired: Fun([], Bool)
 };
 
 const CreatorInterface = {
@@ -66,14 +70,14 @@ export const main = Reach.App(() => {
 	const [owner, resolver, ttl, price] = parallelReduce([Creator, Creator, 0, 0])
 		.invariant(balance() == 0)
 		.while(true)
-		.define(
-			// TODO: Add views here
-			// owner,
-			// resolver,
-			// ttl,
-			// isExpired,
-			// price
-		)
+		.define(() => {
+			Views.owner.set(owner);
+			Views.resolver.set(resolver);
+			Views.ttl.set(ttl);
+			Views.price.set(price);
+			Views.isExpired.set(() => 
+				lastConsensusTime() > ttl + GRACE_PERIOD);
+		})
 		.api(User.register,
 			(duration) => {
 				assume(duration >= MIN_REGISTER_PERIOD);
