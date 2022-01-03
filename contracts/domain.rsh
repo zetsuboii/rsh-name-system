@@ -10,6 +10,11 @@ const NftParams = Object({
 	pricePerDay: UInt
 });
 
+const Price = Data({
+	NotForSale: Null,
+	ForSale: UInt 
+});
+
 // Interfaces
 const DomainViews = {
 
@@ -56,10 +61,19 @@ export const main = Reach.App(() => {
 	 * changing function which might not be necessary.
 	 */
 
+	// TODO: Change price with Data
 	// Main loop
 	const [owner, resolver, ttl, price] = parallelReduce([Creator, Creator, 0, 0])
 		.invariant(balance() == 0)
 		.while(true)
+		.define(
+			// TODO: Add views here
+			// owner,
+			// resolver,
+			// ttl,
+			// isExpired,
+			// price
+		)
 		.api(User.register,
 			(duration) => {
 				assume(duration >= MIN_REGISTER_PERIOD);
