@@ -2,6 +2,12 @@
 
 // Helpers
 const d = declassify;
+const getPrice = (p) => {
+	return p.match({
+		NotForSale: () => { return 0 },
+		ForSale: (v) => { return v } 
+	});
+};
 
 // Types
 const NftParams = Object({
@@ -89,14 +95,14 @@ export const main = Reach.App(() => {
 			(duration) => {
 				assume(duration >= MIN_REGISTER_PERIOD);
 				// Allow if registering for the first time or if it's expired
-				assume(ttl == 0 || lastConsensusTime() > ttl + GRACE_PERIOD);
-				assume(this != owner);
+				assume(state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD);
+				assume(this != state.owner);
 			},
 			(duration) => (duration * pricePerDay) / DAYS_TO_SECS,
 			(duration, ok) => {
 				require(duration >= MIN_REGISTER_PERIOD);
-				require(ttl == 0 || lastConsensusTime() > ttl + GRACE_PERIOD);
-				require(this != owner);
+				require(state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD);
+				require(this != state.owner);
 				ok(true);
 
 				return {
@@ -109,17 +115,17 @@ export const main = Reach.App(() => {
 		.api(User.renew,
 			(duration) => {
 				assume(duration >= MIN_REGISTER_PERIOD);;
-				assume(this == owner);
+				assume(this == state.owner);
 			},
 			(duration) => (duration * pricePerDay) / DAYS_TO_SECS,
 			(duration, ok) => {
 				require(duration >= MIN_REGISTER_PERIOD);
-				require(this == owner);
+				require(this == state.owner);
 				ok(true);
 
 				return {
 					...state,
-					ttl: ttl + duration
+					ttl: state.ttl + duration
 				} 
 				// [owner, resolver, ttl + duration, price];
 			}
@@ -130,17 +136,19 @@ export const main = Reach.App(() => {
 					state.ttl == 0 || 
 					lastConsensusTime() > state.ttl + GRACE_PERIOD
 				);
+
+				return state;
 			}	
 		)
 		.api(User.setResolver,
 			(newResolver) => {
-				assume(newResolver != resolver);
-				assume(this == owner);
+				assume(newResolver != state.resolver);
+				assume(this == state.owner);
 			},
 			(_) => 0,
 			(newResolver, ok) => {
-				require(newResolver != resolver);
-				require(this == owner);
+				require(newResolver != state.resolver);
+				require(this == state.owner);
 				ok(true);
 
 				return {
@@ -152,13 +160,13 @@ export const main = Reach.App(() => {
 		)
 		.api(User.transferTo,
 			(newOwner) => {
-				assume(newOwner != owner);
-				assume(this == owner);
+				assume(newOwner != state.owner);
+				assume(this == state.owner);
 			},
 			(_) => 0,
 			(newOwner, ok) => {
-				require(newOwner != owner);
-				require(this == owner);
+				require(newOwner != state.owner);
+				require(this == state.owner);
 				ok(true);
 
 				return {
@@ -173,12 +181,12 @@ export const main = Reach.App(() => {
 		.api(User.list,
 			(newPrice) => {
 				assume(newPrice > 0);
-				assume(this == owner);
+				assume(this == state.owner);
 			},
 			(_) => 0,
 			(newPrice, ok) => {
 				require(newPrice > 0);
-				require(this == owner);
+				require(this == state.owner);
 				ok(true);
 
 				return {
@@ -190,13 +198,13 @@ export const main = Reach.App(() => {
 		)
 		.api(User.buy,
 			() => {
-				assume(this != owner);
-				assume(price > 0);
+				assume(this != state.owner);
+				assume(state.price != Price.NotForSale());
 			},
-			() => price,
+			() => getPrice(state.price),
 			(ok) => {
-				require(this != owner);
-				require(price > 0);
+				require(this != state.owner);
+				require(state.price != Price.NotForSale());
 				ok(true);
 
 				return {
