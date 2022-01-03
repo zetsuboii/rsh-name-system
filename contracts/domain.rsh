@@ -51,26 +51,26 @@ export const main = Reach.App(() => {
 	});
 	Creator.publish(name, symbol, pricePerDay);
 
-	/**
+	/*
 	 * Thinking about it, there are some sanity checks with owner/resolver
 	 * changing function which might not be necessary.
 	 */
 
 	// Main loop
-	const [owner, resolver, ttl, price] = parallelReduce([Creator, Creator, 0])
+	const [owner, resolver, ttl, price] = parallelReduce([Creator, Creator, 0, 0])
 		.invariant(balance() == 0)
 		.while(true)
 		.api(User.register,
 			(duration) => {
 				assume(duration >= MIN_REGISTER_PERIOD);
-				assume(owner == Creator);
+				// Allow if registering for the first time or if it's expired
+				assume(ttl == 0 || lastConsensusTime() > ttl + GRACE_PERIOD);
 				assume(this != owner);
 			},
 			(duration) => (duration * pricePerDay) / DAYS_TO_SECS,
 			(duration, ok) => {
 				require(duration >= MIN_REGISTER_PERIOD);
-				// TODO: Change this with expire mechanism
-				require(owner == Creator);
+				require(ttl == 0 || lastConsensusTime() > ttl + GRACE_PERIOD);
 				require(this != owner);
 				ok(true);
 
@@ -148,7 +148,7 @@ export const main = Reach.App(() => {
 		)
 		.timeout(relativeSecs(1024), () => {
 			Anybody.publish();
-			return [owner, resolver, ttl];
+			return [owner, resolver, ttl, price];
 		});
 
 	commit();
