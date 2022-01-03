@@ -11,8 +11,7 @@ const getPrice = (p) => {
 
 // Types
 const NftParams = Object({
-	name: Bytes(32),
-	symbol: Bytes(32),
+	name: Bytes(64),
 	pricePerDay: UInt
 });
 
@@ -23,6 +22,7 @@ const Price = Data({
 
 // Interfaces
 const DomainViews = {
+	name: Bytes(64),
 	owner: Address,
 	resolver: Address,
 	ttl: UInt,
@@ -64,14 +64,16 @@ export const main = Reach.App(() => {
 	
 	// Creator sets the parameters
 	Creator.only(() => {
-		const { name, symbol, pricePerDay } = d(interact.getParams());
+		const { name, pricePerDay } = d(interact.getParams());
 	});
-	Creator.publish(name, symbol, pricePerDay);
+	Creator.publish(name, pricePerDay);
 	
 	commit();
 
 	Creator.interact.announce();
 	Creator.publish();
+
+	Views.name.set(name);
 
 	const initialState = {
 		owner: Creator,
