@@ -58,14 +58,15 @@ export const main = Reach.App(() => {
 	const User = API("User", UserAPIInterface);
 	const Views = View(DomainViews);
 
-	setOptions({ verifyPerConnector: true });
+	// setOptions({ verifyPerConnector: true });
 	deploy();
-
+	
 	// Creator sets the parameters
 	Creator.only(() => {
 		const { name, symbol, pricePerDay } = d(interact.getParams());
 	});
 	Creator.publish(name, symbol, pricePerDay);
+	
 	commit();
 
 	// This is needed to observe consensus time
@@ -90,20 +91,23 @@ export const main = Reach.App(() => {
 
 			const isAvailable = () => 
 				state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD;
+			const isOwner = (addr) => addr === state.owner;
 		})
 		.api(User.register,
 			(duration) => {
 				assume(duration >= MIN_REGISTER_PERIOD);
 				// Allow if registering for the first time or if it's expired
-				assume(state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD);
-				assume(this != state.owner);
+				assume(isAvailable());
+				assume(!isOwner(this));
 			},
 			(duration) => (duration * pricePerDay) / DAYS_TO_SECS,
 			(duration, ok) => {
 				require(duration >= MIN_REGISTER_PERIOD);
-				require(state.ttl == 0 || lastConsensusTime() > state.ttl + GRACE_PERIOD);
-				require(this != state.owner);
+				require(isAvailable());
+				require(!isOwner(this));
 				ok(true);
+
+				transfer(balance()).to(Creator);
 
 				return {
 					owner: this,
@@ -115,13 +119,15 @@ export const main = Reach.App(() => {
 		.api(User.renew,
 			(duration) => {
 				assume(duration >= MIN_REGISTER_PERIOD);;
-				assume(this == state.owner);
+				assume(isOwner(this));
 			},
 			(duration) => (duration * pricePerDay) / DAYS_TO_SECS,
 			(duration, ok) => {
 				require(duration >= MIN_REGISTER_PERIOD);
-				require(this == state.owner);
+				require(isOwner(this));
 				ok(true);
+
+				transfer(balance()).to(Creator);
 
 				return {
 					...state,
@@ -132,23 +138,19 @@ export const main = Reach.App(() => {
 		)
 		.api(User.isAvailable,
 			(showIfAvailable) => {
-				showIfAvailable(
-					state.ttl == 0 || 
-					lastConsensusTime() > state.ttl + GRACE_PERIOD
-				);
-
+				showIfAvailable(isAvailable());
 				return state;
 			}	
 		)
 		.api(User.setResolver,
 			(newResolver) => {
 				assume(newResolver != state.resolver);
-				assume(this == state.owner);
+				assume(isOwner(this));
 			},
 			(_) => 0,
 			(newResolver, ok) => {
 				require(newResolver != state.resolver);
-				require(this == state.owner);
+				require(isOwner(this));
 				ok(true);
 
 				return {
@@ -161,12 +163,12 @@ export const main = Reach.App(() => {
 		.api(User.transferTo,
 			(newOwner) => {
 				assume(newOwner != state.owner);
-				assume(this == state.owner);
+				assume(isOwner(this));
 			},
 			(_) => 0,
 			(newOwner, ok) => {
 				require(newOwner != state.owner);
-				require(this == state.owner);
+				require(isOwner(this));
 				ok(true);
 
 				return {
@@ -181,12 +183,12 @@ export const main = Reach.App(() => {
 		.api(User.list,
 			(newPrice) => {
 				assume(newPrice > 0);
-				assume(this == state.owner);
+				assume(isOwner(this));
 			},
 			(_) => 0,
 			(newPrice, ok) => {
 				require(newPrice > 0);
-				require(this == state.owner);
+				require(isOwner(this));
 				ok(true);
 
 				return {
@@ -198,14 +200,16 @@ export const main = Reach.App(() => {
 		)
 		.api(User.buy,
 			() => {
-				assume(this != state.owner);
 				assume(state.price != Price.NotForSale());
+				assume(!isOwner(this));
 			},
 			() => getPrice(state.price),
 			(ok) => {
-				require(this != state.owner);
 				require(state.price != Price.NotForSale());
+				require(!isOwner(this));
 				ok(true);
+
+				transfer(balance()).to(state.owner);
 
 				return {
 					...state,
