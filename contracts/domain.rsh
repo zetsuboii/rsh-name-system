@@ -23,10 +23,10 @@ const UserAPIInterface = {
 	// Register functions
 	register: Fun([UInt], Bool),
 	renew: Fun([UInt], Bool),
-	// // Resolve
+	// Resolve
 	setResolver: Fun([Address], Bool),
-	// // Transfers
-	// transferTo: Fun([Address], Bool),
+	// Transfers
+	transferTo: Fun([Address], Bool),
 	// // Marketplace
 	// list: Fun([UInt], Bool),
 	// buy: Fun([UInt], Bool)
@@ -51,6 +51,11 @@ export const main = Reach.App(() => {
 	});
 	Creator.publish(name, symbol, pricePerDay);
 
+	/**
+	 * Thinking about it, there are some sanity checks with owner/resolver
+	 * changing function which might not be necessary.
+	 */
+
 	// Main loop
 	const [owner, resolver, ttl] = parallelReduce([Creator, Creator, 0])
 		.invariant(balance() == 0)
@@ -64,6 +69,7 @@ export const main = Reach.App(() => {
 			(duration) => (duration * pricePerDay) / DAYS_TO_SECS,
 			(duration, ok) => {
 				require(duration >= MIN_REGISTER_PERIOD);
+				// TODO: Change this with expire mechanism
 				require(owner == Creator);
 				require(this != owner);
 				ok(true);
@@ -96,6 +102,20 @@ export const main = Reach.App(() => {
 				ok(true);
 
 				return [owner, newResolver, ttl];
+			}
+		)
+		.api(User.transferTo,
+			(newOwner) => {
+				assume(newOwner != owner);
+				assume(this == owner);
+			},
+			(_) => 0,
+			(newOwner, ok) => {
+				require(newOwner != owner);
+				require(this == owner);
+				ok(true);
+
+				return [newOwner, newOwner, ttl]
 			}
 		)
 		.timeout(relativeSecs(1024), () => {
