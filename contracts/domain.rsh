@@ -55,6 +55,21 @@ export const main = Reach.App(() => {
 	const [owner, resolver, ttl] = parallelReduce([Creator, Creator, 0])
 		.invariant(balance() == 0)
 		.while(true)
+		.api(User.register,
+			(duration) => {
+				assume(duration >= MIN_REGISTER_PERIOD);
+				assume(owner == Creator);
+				assume(this != owner);
+			},
+			(duration) => (duration * pricePerDay) / DAYS_TO_SECS,
+			(duration, ok) => {
+				require(duration >= MIN_REGISTER_PERIOD);
+				require(owner == Creator);
+				require(this != owner);
+				ok(true);
+
+				return [this, this, lastConsensusTime() + duration];
+			})
 		.timeout(relativeSecs(1024), () => {
 			Anybody.publish();
 			return [owner, resolver, ttl];
