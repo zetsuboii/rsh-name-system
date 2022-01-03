@@ -20,8 +20,8 @@ const DomainViews = {
 	owner: Address,
 	resolver: Address,
 	ttl: UInt,
-	price: UInt,
-	isExpired: Fun([], Bool)
+	price: Price,
+	isAvailable: Fun([], Bool)
 };
 
 const CreatorInterface = {
@@ -32,6 +32,7 @@ const UserAPIInterface = {
 	// Register functions
 	register: Fun([UInt], Bool),
 	renew: Fun([UInt], Bool),
+	isAvailable: Fun([], Bool),
 	// Resolve
 	setResolver: Fun([Address], Bool),
 	// Transfers
@@ -59,24 +60,27 @@ export const main = Reach.App(() => {
 		const { name, symbol, pricePerDay } = d(interact.getParams());
 	});
 	Creator.publish(name, symbol, pricePerDay);
+	commit();
 
-	/*
-	 * Thinking about it, there are some sanity checks with owner/resolver
-	 * changing function which might not be necessary.
-	 */
+	// This is needed to observe consensus time
+	Creator.publish();
 
-	// TODO: Change price with Data
+	const initialState = {
+		owner: Creator,
+		resolver: Creator,
+		ttl: 0,
+		price: Price.NotForSale()
+	}
+
 	// Main loop
-	const [owner, resolver, ttl, price] = parallelReduce([Creator, Creator, 0, 0])
+	const state = parallelReduce(initialState)
 		.invariant(balance() == 0)
 		.while(true)
 		.define(() => {
-			Views.owner.set(owner);
-			Views.resolver.set(resolver);
-			Views.ttl.set(ttl);
-			Views.price.set(price);
-			Views.isExpired.set(() => 
-				lastConsensusTime() > ttl + GRACE_PERIOD);
+			Views.owner.set(state.owner);
+			Views.resolver.set(state.resolver);
+			Views.ttl.set(state.ttl);
+			Views.price.set(state.price);
 		})
 		.api(User.register,
 			(duration) => {
@@ -92,7 +96,12 @@ export const main = Reach.App(() => {
 				require(this != owner);
 				ok(true);
 
-				return [this, this, lastConsensusTime() + duration, 0];
+				return {
+					owner: this,
+					resolver: this,
+					ttl: lastConsensusTime() + duration,
+					price: Price.NotForSale()
+				};
 			})
 		.api(User.renew,
 			(duration) => {
@@ -105,7 +114,11 @@ export const main = Reach.App(() => {
 				require(this == owner);
 				ok(true);
 
-				return [owner, resolver, ttl + duration, price];
+				return {
+					...state,
+					ttl: ttl + duration
+				} 
+				// [owner, resolver, ttl + duration, price];
 			}
 		)
 		.api(User.setResolver,
@@ -119,7 +132,11 @@ export const main = Reach.App(() => {
 				require(this == owner);
 				ok(true);
 
-				return [owner, newResolver, ttl, price];
+				return {
+					...state,
+					resolver: newResolver
+				};
+				// [owner, newResolver, ttl, price];
 			}
 		)
 		.api(User.transferTo,
@@ -133,7 +150,13 @@ export const main = Reach.App(() => {
 				require(this == owner);
 				ok(true);
 
-				return [newOwner, newOwner, ttl, price]
+				return {
+					...state,
+					owner: newOwner,
+					resolver: newOwner,
+					price: Price.NotForSale()
+				};
+				// [newOwner, newOwner, ttl, price]
 			}
 		)
 		.api(User.list,
@@ -147,7 +170,11 @@ export const main = Reach.App(() => {
 				require(this == owner);
 				ok(true);
 
-				return [owner, resolver, ttl, newPrice];
+				return {
+					...state,
+					price: Price.ForSale(newPrice)
+				};
+				// [owner, resolver, ttl, newPrice];
 			}
 		)
 		.api(User.buy,
@@ -161,12 +188,18 @@ export const main = Reach.App(() => {
 				require(price > 0);
 				ok(true);
 
-				return [this, this, ttl, 0];
+				return {
+					...state,
+					owner: this,
+					resolver: this,
+					price: Price.NotForSale()
+				}; 
+				// [this, this, ttl, 0];
 			} 
 		)
 		.timeout(relativeSecs(1024), () => {
 			Anybody.publish();
-			return [owner, resolver, ttl, price];
+			return state;
 		});
 
 	commit();
