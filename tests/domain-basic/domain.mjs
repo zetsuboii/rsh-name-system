@@ -9,9 +9,12 @@ const call = async(fn, ...args) => await new Promise(async (res, rej) => {
     if(result[0] === "Some")
       res(result[1]);
     else
-      rej("None");
+      res(null)
   }
-  catch(e) { console.log(e);rej() }
+  catch(e) { 
+    console.log("Call failed");
+    res(null) 
+  }
 });
 
 (async () => {
@@ -100,7 +103,6 @@ const call = async(fn, ...args) => await new Promise(async (res, rej) => {
           await sleep(2);
         }
       },
-      log: console.log
     });
   }
 
@@ -121,25 +123,32 @@ const call = async(fn, ...args) => await new Promise(async (res, rej) => {
     const domainName = domainView[0] === "Some" ? `${domainView[1]}` : undefined;
     console.log("Alice learns domain name of the app is", domainName);
 
-    // console.log({
-    //   aliceAddress: accAlice.networkAccount.address,
-    //   contractAddress: domainsList[0].appId,
-    //   creatorAddress: accCreator.networkAccount.address
-    // });
+    console.log({
+      aliceAddress: accAlice.networkAccount.address,
+      contractAddress: domainsList[0].appId,
+      creatorAddress: accCreator.networkAccount.address
+    });
 
     const fns = domainContract.apis.User;
     await new Promise(async (res) => {
       while(true) {
         try {
-          const reg = await fns.register(90 * 24 * 60 * 60);
-          res();
+          const req = await fns.register(90 * 24 * 60 * 60);
+          // const req = await fns.isAvailable();
+          console.log("Request", req);
+          break;
         } 
-        catch(e) { console.log(e)}
+        catch(e) { }
         await sleep(2);
       }
+      res();
     });
+    
+    console.log("New owner: ", await domainContract.v.owner());
+    console.log("New resolver: ", await domainContract.v.resolver());
+    
   }
-
+    
   console.log('Starting backends...');
   await Promise.all([
     runConstructor(),
