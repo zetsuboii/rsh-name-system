@@ -1,6 +1,5 @@
 'reach 0.1';
 
-const d = declassify
 const Iface = Bytes(64);
 const Addr = Address;
 

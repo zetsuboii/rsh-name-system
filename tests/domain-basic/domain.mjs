@@ -1,15 +1,21 @@
-import * as announcer from './build/announcer.main.mjs';
 import * as domain from './build/domain.main.mjs';
-import {loadStdlib} from '@reach-sh/stdlib';
+import * as announcerALGO from './build/announcer_algo.main.mjs'
+import * as announcerETH from './build/announcer_eth.main.mjs';
 
 const NETWORK = process.env["REACH_CONNECTOR_MODE"];
+import {loadStdlib} from '@reach-sh/stdlib';
 const stdlib = loadStdlib(NETWORK);
 
 const sleep = async (t) => await new Promise(r => setTimeout(r, t * 1000));
 const toDays = (t) => t * 24 * 60 * 60;
+
 const getAddress = acc => NETWORK.includes("ALGO") 
   ? acc.networkAccount.addr
   : acc.networkAccount.address;
+
+const announcer = NETWORK.includes("ALGO")
+  ? announcerALGO
+  : announcerETH;
 
 const waitFor = async (condGet) => {
   return await new Promise(async (res) => {
@@ -61,12 +67,12 @@ const fmtDetails = async (views) => {
     ? "Not For Sale"
     : "On Sale for " + stdlib.formatCurrency(price[1]) + " network tokens";
 
-  return `Details:\n\tDomain name: ${name}\n\t` +
-  `Owner: ${owner}\n\t` +
-  `Resolves to: ${resolver}\n\t` +
-  `Time to live: ${ttld.toLocaleString()}\n\t` +
+  return `Details:\n\tDomain Name: ${name}\n\t` +
+  `Owner: ${owner} (${findKey(addresses, owner)})\n\t` +
+  `Resolves to: ${resolver} (${findKey(addresses, resolver)})\n\t` +
+  `Time to Live: ${ttld.toLocaleString()}\n\t` +
   `Price: ${priceTag}\n\t` +
-  `Is available: ${isAvailable}`
+  `Is Available: ${isAvailable}`
 }
 
 const listDomains = (li) => {
@@ -74,6 +80,16 @@ const listDomains = (li) => {
     console.log(`[${i}]:`, v.appId, "->", v.iface);
   });
 }
+
+const findKey = (obj, v) => {
+  for (let k of Object.keys(obj)) {
+    if(obj[k] == v)
+      return k;
+  }
+  return undefined;
+}
+
+let addresses = {};
 
 (async () => {
   console.log("Loading stdlib...");
@@ -144,12 +160,12 @@ const listDomains = (li) => {
     console.log("Alice learns domain name of the app is", 
                  await view(aliceDomainCtc.v.name));
     
-    console.log(JSON.stringify({
-      aliceAddress: getAddress(accAlice),
-      bobAddress: getAddress(accBob),
-      contractAddress: domainsList[0].appId,
-      creatorAddress: getAddress(accCreator)
-    }, null, 2));
+    addresses = {
+      Alice: getAddress(accAlice),
+      Bob: getAddress(accBob),
+      Creator: getAddress(accCreator),
+      Domain1: domainsList[0].appId
+    };
       
     const alicefns = aliceDomainCtc.apis.User;
     const bobfns = bobDomainCtc.apis.User;
