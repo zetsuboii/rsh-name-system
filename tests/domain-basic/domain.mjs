@@ -96,8 +96,13 @@ let addresses = {};
   const startingBalance = stdlib.parseCurrency(100);
   await new Promise(res => setTimeout(res, 100));
 
-  const [ accConstructor, accCreator, accAlice, accBob ] =
-    await stdlib.newTestAccounts(4, startingBalance);
+  const [ accConstructor, accCreator, accCreator2, accAlice, accBob ] =
+    await stdlib.newTestAccounts(5, startingBalance);
+
+  // accConstructor.setGasLimit(5000000);
+  // accCreator.setGasLimit(5000000);
+  // accAlice.setGasLimit(5000000);
+  // accBob.setGasLimit(5000000);
 
   const domainsList = [];
 
@@ -112,6 +117,7 @@ let addresses = {};
       save: (appId, iface) => {
         console.log(`Saved contract info: { appId: ${appId.toString()}, interface: ${iface} }`);
         domainsList.push({appId: appId.toString(), iface});
+        listDomains(domainsList);
       }
     });    
   };
@@ -120,12 +126,13 @@ let addresses = {};
     const fns = ctcConstructor.apis.Allower;
 
     await tryCall(fns.allow, getAddress(accCreator));
+    await tryCall(fns.allow, getAddress(accCreator2));
     allowedCreator = true;
     console.log("Allowed creator");
   }
 
-  const ctcCreator = accCreator.contract(domain);
-  const createDomain = async (domainName) => {
+  const createDomain = async (acc, domainName) => {
+    const ctcCreator = acc.contract(domain);
     await waitFor(() => allowedCreator);
 
     await domain.Creator(ctcCreator, {
@@ -155,7 +162,6 @@ let addresses = {};
 
     const aliceDomainCtc = accAlice.contract(domain, domainsList[0].appId);
     const bobDomainCtc = accBob.contract(domain, domainsList[0].appId);
-    listDomains(domainsList);
 
     console.log("Alice learns domain name of the app is", 
                  await view(aliceDomainCtc.v.name));
@@ -197,7 +203,8 @@ let addresses = {};
   await Promise.all([
     runConstructor(),
     allowCreator(),
-    createDomain("hamza.algo"),
+    createDomain(accCreator, "hamza.algo"),
+    createDomain(accCreator2, "alice.algo"),
     runUsers()
   ]);
 })();
